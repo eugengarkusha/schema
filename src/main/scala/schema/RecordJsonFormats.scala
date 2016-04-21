@@ -1,9 +1,7 @@
 package schema
 
-
-import play.api.libs.json , json._
-import shapeless.ops.record.{Remover, Selector, Updater}
-import shapeless._, shapeless.record._, labelled._, shapeless.ops.hlist.{ToTraversable, Mapper}, syntax.singleton._
+import play.api.libs.json._
+import shapeless._, labelled._
 
 //is it generic for HLists or only for records?
 object RecordJsonFormats {
@@ -26,8 +24,21 @@ object RecordJsonFormats {
     def writes(v: E#Value): JsValue = JsString(v.toString)
   }
 
-  //Option Reads:
-  implicit def readOptOnNullUndef[V](implicit r:Reads[V]): Reads[Option[V]]= r.map(Option(_)).orElse(Reads[Option[V]](_ => JsSuccess(None)))
+
+  trait PathAwareReads[T]{
+    def by(p: JsPath):Reads[T]
+  }
+  trait loPathAwareReads {
+    implicit def noOpt[T](implicit r:Reads[T]):PathAwareReads[T] = new PathAwareReads[T] {
+      override def by(p: JsPath): Reads[T] = p.read[T]
+    }
+  }
+  object PathAwareReads extends loPathAwareReads{
+    implicit def opt[T](implicit r:Reads[T]):PathAwareReads[Option[T]] = new PathAwareReads[Option[T]] {
+      override def by(p: JsPath): Reads[Option[T]] = p.readNullable[T]
+    }
+  }
+
   //generic reads and writes for case classes
   implicit def ProductReads[P<:Product, L<:HList](implicit lg:LabelledGeneric.Aux[P,L], r: Lazy[Reads[L]]):Reads[P]= {
     r.value.map(lg.from(_))
@@ -37,10 +48,9 @@ object RecordJsonFormats {
   }
 
 
-  implicit def RecReads[K<:Symbol,V,T<:HList](implicit rv: Reads[V], w:Witness.Aux[K], rt:Lazy[Reads[T]]):Reads[FieldType[K,V]::T] = {
-    //workaround for plays inconsistent parsing implementation(?):
+  implicit def RecReads[K<:Symbol,V,T<:HList](implicit rv: PathAwareReads[V], w:Witness.Aux[K], rt:Lazy[Reads[T]]):Reads[FieldType[K,V]::T] = {
     Reads[FieldType[K,V]::T]{v=>
-      def head = (__ \ w.value.name).read[JsValue].reads(v).getOrElse(Json.obj()).validate(rv)
+      def head = rv.by(__ \ w.value.name).reads(v)
       def tail = rt.value.reads(v)
       head.flatMap(h=>tail.map(t=> field[K](h) :: t))
     }

@@ -20,7 +20,7 @@ class JsonTest extends FlatSpec with Matchers{
     val ord = Record(n = "N" , x = 17, r = Record(v = "V", y = true),enum = Tst.cval)
 
     val format = implicitly[Format[schema]]
-    format.reads(ordJs) should be (JsSuccess(ord))
+    format.reads(ordJs).asOpt should be (Some(ord))
     format.writes(ord) should be (ordJs)
   }
 
@@ -30,7 +30,7 @@ class JsonTest extends FlatSpec with Matchers{
     val cclass =  C("A", 3, Some(C("inner", 2, None)))
 
     val format = implicitly[Format[C]]
-    format.reads(js) should  be(JsSuccess(cclass))
+    format.reads(js).asOpt should  be(Some(cclass))
     format.writes(cclass) should be (js)
   }
 
@@ -69,7 +69,7 @@ class JsonTest extends FlatSpec with Matchers{
     //note that no additional explicit play reads/writes are defined
     val ff = implicitly[Format[O]]
     ff.writes(instance) should be (js)
-    ff.reads(js) should be (JsSuccess(instance))
+    ff.reads(js).asOpt should be (Some(instance))
   }
 
 

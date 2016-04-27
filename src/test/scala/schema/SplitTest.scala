@@ -9,7 +9,7 @@ class SplitTest extends FlatSpec with Matchers{
 
   "Split" should "correctly detect types"  in {
 
-    def plus[HK,H[_],V](v:HK)(v1:V)(implicit hk: Split[HK,H,V], f: Functor[H], n: Numeric[V]) = f.map(hk.f(v))(n.plus(_,v1))
+    def plus[HK,H[_],V](v:HK)(v1:V)(implicit split: Split[HK,H,V], f: Functor[H], n: Numeric[V]) = f.map(split(v))(n.plus(_, v1))
 
     plus(1)(2)             should be(3)
     plus(List(1, 2, 3))(2) should be(List(3, 4, 5))

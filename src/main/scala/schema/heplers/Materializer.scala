@@ -1,45 +1,45 @@
 package schema.heplers
 
+import shapeless.labelled.FieldType
 import shapeless.{::, HList, HNil}
+
+import scalaz.Applicative
+
 
 
 //type class for HList materialization
+//TODO: Materializer need fix (materialization where Out!=T is broken)
 trait Materializer[T]{type Out ;val v:Out}
 
-trait lowMaterializer {
-  implicit def default[T]: Materializer.Aux[T,T] = new Materializer[T]{type Out = T; val v = null.asInstanceOf[T]}
+trait veryLowMaterializer {
+  implicit def plain[T]: Materializer.Aux[T,T] = new Materializer[T]{type Out = T; val v = null.asInstanceOf[T]}
+}
+trait lowMaterializer extends veryLowMaterializer {
+
+  implicit def list[T,H[_]](implicit m:Materializer.Aux[T,T], a:Applicative[H]): Materializer.Aux[H[T],H[T]] = {
+    new Materializer[H[T]]{
+      type Out = H[T]
+      val v:Out = a.point(m.v)
+    }
+  }
 }
 
 object Materializer extends lowMaterializer{
 
   type Aux[T,O] = Materializer[T]{type Out = O}
 
-  implicit def hconsDef1[H,HO, TT<:HList,O<:HList](implicit d:Materializer.Aux[H,HO], dt:Materializer.Aux[TT,O]):Materializer.Aux[H::TT,HO::O] = {
+  implicit def hconsDef1[H,V,TT<:HList](implicit u:Unlabel[H,V], d:Materializer.Aux[V,V], dt:Materializer.Aux[TT,TT]):Materializer.Aux[H::TT,H::TT] = {
     new Materializer[H::TT]{
-      type Out = HO::O
-      val v = d.v::dt.v
+      type Out = H::TT
+      val v = u.relabel(d.v)::dt.v
     }
   }
 
   implicit def HNilDef:Materializer.Aux[HNil,HNil] = new Materializer[HNil]{type Out = HNil; val v = HNil}
 
+  def materialize[T](implicit m: Materializer[T]) = m.v
+
 }
 
 
-////user provided materializers
-//implicit val matStr = new Materializer[String]{
-//  type Out = Function1[String,Boolean]
-//  val v:Out = _.startsWith("a")
-//}
-//implicit val matInt = new Materializer[Int]{
-//  type Out =  Function1[Int,Boolean]
-//  val v:Out = _ > 1
-//}
-//implicit def matCaeClass[T,H](implicit  g:Generic.Aux[T,H],m: Materializer[H]) = m.asInstanceOf[Materializer[T]]
-////test case class
-//case class A(a: Int, b:String)
-////result
-//// /Materializer.build[A].value
-//
-//implicitly [Materializer[A]].v
 

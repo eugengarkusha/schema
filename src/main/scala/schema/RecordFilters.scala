@@ -63,7 +63,7 @@ object RecordFilters {
 
 
   trait loWrapWithFilters  {self:Poly1=>
-    implicit def ord[K,V] = at[FT[K,V]](f=> field[K][Option[Filter[V]]](Option(null)))
+    implicit def ord[K,V] = at[FT[K,V]](f=> field[K][Option[Filter[V]]](None))
   }
 
   object wrapWithFilters extends Poly1 with loWrapWithFilters{

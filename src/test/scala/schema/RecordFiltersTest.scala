@@ -1,19 +1,14 @@
 package schema
 
 import org.scalatest.{FlatSpec, Matchers}
-import schema.heplers.{Materializer, TypeCaptured}
-import Materializer._
 import schema.heplers.misc._
 import shapeless._
 import shapeless.record._
 import RecordFilters._
 import RecordJsonFormats._
-import play.api.libs.json.{Json, Reads}
-
+import play.api.libs.json.Json
 import scalaz.{Ordering => _, _}
 import Scalaz._
-
-
 
 class RecordFiltersTest  extends FlatSpec with Matchers{
 
@@ -66,7 +61,7 @@ class RecordFiltersTest  extends FlatSpec with Matchers{
 
 
    //FiltersSetup
-   val filters =  RecordFilters.from(materialize[schema])
+   val filters =  RecordFilters.from(tpe[schema])
 
 
    val filtersValues = filters.read(Json.parse(filtersConfig)).get

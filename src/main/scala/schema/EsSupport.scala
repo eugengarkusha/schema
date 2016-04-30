@@ -19,10 +19,10 @@ object EsSupport{
   case class TstLbl[T](t: T) extends FldOption[T]
 
   implicit def HListWrites[K<:Symbol,V,T<:HList](implicit rv: FldWrites[V], w:Witness.Aux[K], rt:Lazy[OWrites[T]])= OWrites[FT[K,V]::T] { l =>
-    RecordJsonFormats.RecWrites(rv.t,w,rt).writes(l)
+    RecordJsonFormats.recWrites(rv.t,w,rt).writes(l)
   }
 
-  implicit def hnilWrites = RecordJsonFormats.NilWrites
+  implicit def hnilWrites = RecordJsonFormats.nilWrites
 
   def toEsJson[T<:HList](v:T)(implicit w: FldWrites[T]) = w.t.writes(v)
 

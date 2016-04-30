@@ -6,8 +6,11 @@ import shapeless._
 import shapeless.record._
 import RecordFilters._
 import RecordJsonFormats._
-import play.api.libs.json.Json
-import scalaz.{Ordering => _, _}
+import play.api.libs.json.{Json, Reads}
+
+import scalaz._
+import scalaz.Isomorphism.Iso2
+import scalaz.NaturalTransformation._
 import Scalaz._
 
 class RecordFiltersTest  extends FlatSpec with Matchers{
@@ -25,16 +28,20 @@ class RecordFiltersTest  extends FlatSpec with Matchers{
   //settings(received over the wire or smth)
   val filtersConfig ="""{
   |  "ao":{
-  |     "op":"LTEQ",
+  |     "op":"LT",
   |     "v" : 6
   |  },
   |  "a" : {
   |    "op" : "OPTIONS",
-  |    "v" : [ 1, 3 ]
+  |    "v" : [ 1, 3 ],
+  |    "elFilter":{
+  |       "op":"GT",
+  |       "v": 0
+  |     }
   |  },
   |  "b" : {
   |    "op" : "EQ",
-  |    "v" : "bar"
+  |    "v" : ["bar","car", "blah"]
   |  },
   |  "c" : {
   |    "d" : {
@@ -47,58 +54,69 @@ class RecordFiltersTest  extends FlatSpec with Matchers{
   |    }
   |  },
   |  "cl" : {
-  |    "x" : {
-  |      "op" : "GT",
-  |      "v" : 0
-  |    },
-  |    "f" : {
-  |      "op" : "EQ",
-  |      "v" : false
+  |    "op" : "SIZE",
+  |    "v" : 1,
+  |    "elFilter":{
+  |      "x" : {
+  |        "op" : "GT",
+  |        "v" : 0
+  |      },
+  |      "f" : {
+  |        "op" : "EQ",
+  |        "v" : false
+  |      }
   |    }
   |  }
   |}
   |""".stripMargin
 
 
-   //FiltersSetup
-   val filters =  RecordFilters.from(tpe[schema])
 
 
-   val filtersValues = filters.read(Json.parse(filtersConfig)).get
+   val filterReads =  implicitly[Reads[Filter[schema]]]
+   val flt = filterReads.reads(Json.parse(filtersConfig)).get
+
 
   "data that fully passes filter" should "be unchanged" in {
-    filters.apply(filtersValues, data) should be (Some(data))
+    flt(data) should be (Some(data))
   }
-
+//
   "plain fields" should  "be filtrable" in {
-    filters.apply(filtersValues, data.updated('b, "foo")) should be (None)
+    flt(data.updated('b, "foo")) should be (None)
   }
-
+//
   "optional field with Some" should "be filtered as plain field" in {
-    filters.apply(filtersValues, data.updated('ao, Option(7D))) should be (None)
+    flt(data.updated('ao, Option(7D))) should be (None)
     val updData = data.updated('ao, Option(0D))
-    filters.apply(filtersValues, updData) should be (Some(updData))
+    flt(updData) should be (Some(updData))
   }
-
+//
   "optional field with NONE" should "not pass the filter" in {
-    filters.apply(filtersValues, data.updated('ao, None:Option[Double])) should be (None)
+    flt(data.updated('ao, None:Option[Double])) should be (None)
   }
-
+  "multiple choice equals" should "pass if any option from the list matches" in {
+    val updData1=data.updated('b, "car")
+    flt(updData1) should be (Some(updData1))
+    val updData2=data.updated('b, "blah")
+    flt(updData2) should be (Some(updData2))
+    flt(data.updated('b, "baz")) should be (None)
+  }
+//
   "List field" should "pass filter if all entries in filter are contained in this list" in {
-    filters.apply(filtersValues, data.updated('a, List(1,4))) should be (None)
+    flt(data.updated('a, List(1,4))) should be (None)
     val updData = data.updated('a, List(1,3,7,9))
-    filters.apply(filtersValues, updData) should be (Some(updData))
+    flt(updData) should be (Some(updData))
   }
-
+//
   "Fields with nested records" should "be filtered out if one of the nested records fields is not passing filter" in {
-    filters.apply(filtersValues, data.updateWith('c)(_.updated('d,0))) should be (None)
+    flt( data.updateWith('c)(_.updated('d,0))) should be (None)
     val updData = data.updateWith('c)(_.updated('d,10))
-    filters.apply(filtersValues, updData) should be (Some(updData))
+    flt(updData) should be (Some(updData))
   }
 
   "Fields with list of nested records" should "contain the list with records that are passing the filter. If list is empty,the enclosing recoed considered not passing a filter" in {
-    filters.apply(filtersValues, data.updateWith('cl){l=>l.head.updated('x,-1L)::l.tail}) should be (Some(data.updateWith('cl)(_.tail)))
-    filters.apply(filtersValues, data.updateWith('cl){_(1).updated('f,true)::Nil}) should be (None)
+    flt(data.updateWith('cl){l=>l.head.updated('x,-1L)::l.tail}) should be (Some(data.updateWith('cl)(_.tail)))
+    flt(data.updateWith('cl){_(1).updated('f,true)::Nil}) should be (None)
   }
 
   "filters covering just a part of data structure" should "be applicable" in {
@@ -113,17 +131,106 @@ class RecordFiltersTest  extends FlatSpec with Matchers{
       |    "v" : [ 2, 3 ]
       |  },
       |  "cl" : {
-      |    "x" : {
-      |      "op" : "GT",
-      |      "v" : 0
+      |    "elFilter":{
+      |      "x" : {
+      |        "op" : "GT",
+      |        "v" : 0
+      |      }
       |    }
-      |   }
+      |  }
       |}""".stripMargin
 
-    filters.apply(filters.read(Json.parse(f)).get , data) should be (Some(data))
+    filterReads.reads(Json.parse(f)).get.apply(data) should be (Some(data))
+    val f2 ="""
+             |{
+             | "c" : {
+             |    "d" : {
+             |      "op" : "LT",
+             |      "v" : 200
+             |    }
+             |  },
+             |  "cl" : {
+             |    "op" : "SIZE",
+             |    "v" : 1,
+             |    "elFilter":{
+             |      "x" : {
+             |        "op" : "GT",
+             |        "v" : 0
+             |      },
+             |      "f" : {
+             |        "op" : "EQ",
+             |        "v" : false
+             |      }
+             |    }
+             |  }
+             |} """.stripMargin
+
+    filterReads.reads(Json.parse(f2)).get.apply(data) should be (Some(data))
+
+  }
+  "group filters" should "be applied after element filters" in {
+    val f ="""
+             |{
+             |  "a" : {
+             |    "op" : "OPTIONS",
+             |    "v" : [ 2, 3 ],
+             |    "elFilter":{
+             |       "op":"GT",
+             |       "v": 2
+             |     }
+             |  }
+             |}""".stripMargin
+
+    filterReads.reads(Json.parse(f)).get.apply(data) should be (None)
+
+    val f1 ="""
+             |{
+             |  "a" : {
+             |    "op" : "OPTIONS",
+             |    "v" : [3],
+             |    "elFilter":{
+             |       "op":"GT",
+             |       "v": 2
+             |     }
+             |  }
+             |}""".stripMargin
+
+    filterReads.reads(Json.parse(f1)).get.apply(data) should be (Some(data.updated('a,List(3))))
+
+    val f3 ="""
+              |{
+              |  "cl" : {
+              |    "op" : "SIZE",
+              |    "v" : 2,
+              |    "elFilter":{
+              |      "x" : {
+              |        "op" : "GT",
+              |        "v" : 1
+              |      }
+              |    }
+              |  }
+              |} """.stripMargin
+
+    filterReads.reads(Json.parse(f3)).get.apply(data) should be (None)
+    val f4 ="""
+              |{
+              |  "cl" : {
+              |    "op" : "SIZE",
+              |    "v" : 1,
+              |    "elFilter":{
+              |      "x" : {
+              |        "op" : "GT",
+              |        "v" : 1
+              |      }
+              |    }
+              |  }
+              |} """.stripMargin
+
+    filterReads.reads(Json.parse(f4)).get.apply(data) should be (Some(data.updateWith('cl)(_.tail)))
   }
 
-  // TODO: add filters deserializer tests
-
+//
+////   TODO: add filters deserializer tests
+////
 
 }

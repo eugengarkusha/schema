@@ -5,32 +5,44 @@ import schema.heplers.{Materializer, Split}
 import shapeless.labelled.{FieldType => FT, _}
 import shapeless._
 import shapeless.ops.hlist.Mapper
+import play.api.libs.functional.syntax._
 
 import scalaz.{Ordering => _, _}
+import scalaz.Isomorphism.<~>
 import Scalaz._
-import scala.collection.generic.CanBuildFrom
 
 
-//TODO: polish this implementation
+//TODO: polish this implementation(wrapWithFilters and ApplyFilters are so necessary?)
+//TODO: add reporting of which filter has failed
 object RecordFilters {
+
+  //TODO:it sould be defined somewhere in scalaz
+  //this is needed to be in scope in client code
+  implicit val isoListIterable = new <~>[List, List]{
+    override val to: ~>[List, List] = NaturalTransformation.refl[List]
+    override val from: ~>[List, List] = to
+  }
 
   trait Filter[V] extends Function1[V, Option[V]]
 
+ //TODO: avoid duplication of nonordering ops!!!!
   trait eqFilter{self:Filter.type =>
+
     implicit def noord[HV,H[_],V](implicit split:Split[HV,H,V], o:Optional[H], f:Functor[H],r: Reads[V]): Reads[Filter[HV]]= Reads[Filter[HV]] { jv =>
       for{
         _op <- op(jv)
-        _v <- v(jv)(r)
-        res <- if(_op == "EQ") JsSuccess(self[HV](hv=>o.getOrElse(f.map(split(hv))(_ == _v))(false)))
+        _v <- v(jv)(r).map(Set(_)).orElse(v[Set[V]](jv))
+        res <- if(_op == "EQ") JsSuccess(Filter.bool[HV](hv=>o.getOrElse(f.map(split(hv))(_v.contains(_)))(false)))
                else JsError(s"cannot parse EQ op type from ${_op}")
       } yield res
     }
   }
   trait ordFilter extends eqFilter{self:Filter.type =>
 
+
     implicit def ord[HV,H[_],V](implicit split:Split[HV,H,V], ord: Ordering[V], r: Reads[V], o:Optional[H], f:Functor[H]): Reads[Filter[HV]]= Reads[Filter[HV]]{ jv=>
 
-     def mkFilter(op:(V)=>Boolean) = self[HV](dataVal => o.getOrElse(f.map(split(dataVal))(op(_)))(false))
+     def mkFilter(op:(V)=>Boolean) = Filter.bool[HV](dataVal => o.getOrElse(f.map(split(dataVal))(op(_)))(false))
      def cmp(op:(V,V)=>Boolean) = v[V](jv).map(filterVal => mkFilter(op(_, filterVal)))
 
       op(jv).flatMap{
@@ -38,7 +50,7 @@ object RecordFilters {
         case "GTEQ"  =>  cmp(ord.gteq _)
         case "LT"    =>  cmp(ord.lt _)
         case "LTEQ"  =>  cmp(ord.lteq _)
-        case "EQ"    =>  cmp(ord.equiv _)
+        case "EQ"=>  v[V](jv).map(Set(_)).orElse(v[Set[V]](jv)).map(ops => mkFilter(ops.contains(_)))
         case "RANGE" => for (from<-(jv \ "from").validate[V]; to <- (jv \ "to").validate[V])
           yield mkFilter(data => ord.gteq(data, from) && ord.lteq(data, to))
         case s =>   JsError(s"cannot parse op type from $s")
@@ -48,37 +60,51 @@ object RecordFilters {
   }
   object Filter extends ordFilter{
 
+    def apply[V](f:V => Option[V]) =new Filter[V]{def apply(v:V)= f(v)}
+    def bool[V](f:V=>Boolean):Filter[V] = new Filter[V]{def apply(v:V)= if(f(v))Some(v)else None}
     def v[V](jv:JsValue)(implicit r:Reads[V]) = (jv \ "v").validate[V]
     def op(jv:JsValue) = (jv \ "op").validate[String]
+    def elFilterRaw(jv: JsValue) = (jv \ "elFilter").validate[JsValue]
+    //Isomorphism to list is to rigid conatraint here? Client has to define isomorphisms from all list-like structures he euses
+    implicit def group[H[_], V](implicit iso: H<~>List, r: Reads[H[V]], rf: Reads[Filter[V]]): Reads[Filter[H[V]]]= Reads[Filter[H[V]]] { jv =>
 
-    implicit def iter[H[T] <: Iterable[T], V](implicit r: Reads[H[V]]): Reads[Filter[H[V]]]= Reads[Filter[H[V]]]{jv=>
-      op(jv).flatMap{
-        case "OPTIONS" => v[H[V]](jv).map(opts => Filter[H[V]](data=> opts.toSeq.diff(data.toSeq).isEmpty))
-        case s => JsError(s"cannot parse OPTIONS op type from $s")
+      val elFlt = elFilterRaw(jv)
+      val _op = op(jv)
+
+      if(elFlt.isError && _op.isError)JsError("neither element filter or group filter is defined")
+      else {
+
+        val valueFilter: JsResult[Filter[H[V]]] = elFlt match {
+          case JsSuccess(flt, _) => rf.reads(flt).map { f =>
+            Filter[H[V]] { data =>
+              val filtered = iso.to(data).filter(f(_).isDefined)
+              if (filtered.isEmpty) None else Some(iso.from(filtered))
+            }
+          }
+          case _: JsError => JsSuccess(Filter[H[V]](Some(_)))
+        }
+
+
+        val groupFilter: JsResult[Filter[H[V]]] = {
+          _op match {
+            case JsSuccess("OPTIONS", _) => v[H[V]](jv).map(opts => Filter.bool[H[V]](data => iso.to(opts).diff(iso.to(data)).isEmpty))
+            case JsSuccess("SIZE", _) => v[Int](jv).map(sz => Filter.bool[H[V]](data => iso.to(data).size >= sz))
+            case JsSuccess(s, _) => JsError(s"cannot parse OPTIONS op type from $s")
+            case _: JsError => JsSuccess(Filter[H[V]](Some(_)))
+          }
+        }
+
+        valueFilter and groupFilter apply ((fv, pf) => Filter[H[V]](fv.andThen(_.flatMap(pf(_)))))
       }
-    }
+   }
 
-    def apply[V](f:V=>Boolean):Filter[V] = new Filter[V]{def apply(v:V)= if(f(v))Some(v)else None}
+    implicit def recordFilter[V<:HList, F<:HList](implicit m: Mapper.Aux[wrapWithFilters.type,V,F], r:Reads[F], af:ApplyFilters[F,V]):Reads[Filter[V]] =
+      r.map(f=> Filter[V](af(f,_)))
   }
 
 
-  trait loWrapWithFilters  {self:Poly1=>
+  object wrapWithFilters extends Poly1 {
     implicit def ord[K,V] = at[FT[K,V]](f=> field[K][Option[Filter[V]]](None))
-  }
-
-  object wrapWithFilters extends Poly1 with loWrapWithFilters{
-    implicit def record[K,HV,H[_],V<:HList](implicit sp:Split[HV,H,V], mt: Materializer.Aux[V,V], m:Mapper[this.type,V]) = at[FT[K,HV]](f=> field[K](Option(mt.v.map(this))))
-  }
-
-
-
-  class FiltersSetup[S <: HList, F <: HList](val reads: Reads[F],val apply:ApplyFilters[F,S]){
-    type filtersTpe = F
-    def read(js: JsValue): JsResult[F] = reads.reads(js)
-  }
-
-  def from[S <: HList, F <: HList](schema: S)(implicit m: Mapper.Aux[wrapWithFilters.type, S,F], r: Reads[F], a: ApplyFilters[F, S]) = {
-    new FiltersSetup(r, a)
   }
 
 
@@ -108,14 +134,6 @@ object RecordFilters {
 
     implicit def hnil: ApplyFilters[HNil, HNil] = new ApplyFilters[HNil, HNil] {
       def apply(f: HNil, d: HNil) = Some(HNil)
-    }
-
-    implicit def monadOfHlists[F<:HList,H[_],V<:HList](implicit ht: MonadPlus[H], ie:IsEmpty[H], applyFilter: ApplyFilters[F, V]):ApplyFilters[F, H[V]] = new ApplyFilters[F, H[V]] {
-      override def apply(filter: F, data: H[V]): Option[H[V]] ={
-        val filtered = ht.filter(data)(v=> applyFilter(filter, v).isDefined)
-        if(ie.isEmpty(filtered)) None
-        else Some(filtered)
-      }
     }
 
   }

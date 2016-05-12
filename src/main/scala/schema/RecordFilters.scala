@@ -1,7 +1,7 @@
 package schema
 
 import play.api.libs.json._
-import schema.heplers.{Materializer, Split}
+import schema.heplers.{Materializer, Unlabel}
 import shapeless.labelled.{FieldType => FT, _}
 import shapeless._
 import shapeless.ops.hlist.Mapper
@@ -28,7 +28,7 @@ object RecordFilters {
  //TODO: avoid duplication of nonordering ops!!!!
   trait eqFilter{self:Filter.type =>
 
-    implicit def noord[HV,H[_],V](implicit split:Split[HV,H,V], o:Optional[H], f:Functor[H],r: Reads[V]): Reads[Filter[HV]]= Reads[Filter[HV]] { jv =>
+    implicit def noord[HV,H[_],V](implicit split:Unlabel[HV,H,V], o:Optional[H], f:Functor[H],r: Reads[V]): Reads[Filter[HV]]= Reads[Filter[HV]] { jv =>
       for{
         _op <- op(jv)
         _v <- v(jv)(r).map(Set(_)).orElse(v[Set[V]](jv))
@@ -40,7 +40,7 @@ object RecordFilters {
   trait ordFilter extends eqFilter{self:Filter.type =>
 
 
-    implicit def ord[HV,H[_],V](implicit split:Split[HV,H,V], ord: Ordering[V], r: Reads[V], o:Optional[H], f:Functor[H]): Reads[Filter[HV]]= Reads[Filter[HV]]{ jv=>
+    implicit def ord[HV,H[_],V](implicit split:Unlabel[HV,H,V], ord: Ordering[V], r: Reads[V], o:Optional[H], f:Functor[H]): Reads[Filter[HV]]= Reads[Filter[HV]]{ jv=>
 
      def mkFilter(op:(V)=>Boolean) = Filter.bool[HV](dataVal => o.getOrElse(f.map(split(dataVal))(op(_)))(false))
      def cmp(op:(V,V)=>Boolean) = v[V](jv).map(filterVal => mkFilter(op(_, filterVal)))

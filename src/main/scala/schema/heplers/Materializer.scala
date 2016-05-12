@@ -28,10 +28,10 @@ object Materializer extends lowMaterializer{
 
   type Aux[T,O] = Materializer[T]{type Out = O}
 
-  implicit def hconsDef1[H,V,TT<:HList](implicit u:Unlabel[H,V], d:Materializer.Aux[V,V], dt:Materializer.Aux[TT,TT]):Materializer.Aux[H::TT,H::TT] = {
-    new Materializer[H::TT]{
-      type Out = H::TT
-      val v = u.relabel(d.v)::dt.v
+  implicit def hconsDef1[HV,H[_],V,TT<:HList](implicit u:Unlabel[HV,H,V], d:Materializer.Aux[V,V], dt:Materializer.Aux[TT,TT]):Materializer.Aux[HV::TT,HV::TT] = {
+    new Materializer[HV::TT]{
+      type Out = HV::TT
+      val v = u.pack(u.relabel(d.v))::dt.v
     }
   }
 

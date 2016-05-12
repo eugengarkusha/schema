@@ -37,7 +37,6 @@ class ESTest extends FlatSpec with Matchers {
       //.updateWith('ao)(NotAnalyzed(_))}
     }
 
-    //TODO: use case class based validation
     toEsJson(esSchema) should be(Json.parse("""{
                                  |  "properties" : {
                                  |    "a" : {

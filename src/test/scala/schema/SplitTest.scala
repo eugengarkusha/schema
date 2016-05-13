@@ -1,6 +1,7 @@
 package schema
 
 import org.scalatest.{FlatSpec, Matchers}
+import schema.heplers.misc.->
 import schema.heplers.{Split, Unlabel}
 import shapeless.{HList, Poly1}
 import shapeless.record.Record
@@ -31,12 +32,33 @@ class SplitTest extends FlatSpec with Matchers{
       implicit def ct[HV,V](implicit u:Unlabel[HV,V]) = at[HV](hv=>u.relabel(7))
     }
     //Use typed equals check insted (find appropriate method in scalatest)
-    val hlr:hlistResultType = hl.map(process)
-    val rr:recordEesultType = rec.map(process)
+    val hres:hlistResultType = hl.map(process)
+    val rres:recordEesultType = rec.map(process)
 
 
-    rr should be  (Record(a=7,b=7,c=7))
-    hlr should be (HList(7,7,7))
+    rres should be  (Record(a=7,b=7,c=7))
+    hres should be (HList(7,7,7))
+
   }
+
+  "lifted monofuntion" should "preserve structure of HList and Records" in{
+
+    type hlistResultType = HList.`Int,Int,Int`.T
+    type recordEesultType = Record.`'a->Int,'b->Int,'c->Int`.T
+
+    val rr = Record(a="",b="one",c="four")
+    val hh = HList("","one","four")
+
+    object size extends ->[String, Int](_.size)
+
+    val rres:recordEesultType =  rr.map(size)
+    val hres:hlistResultType =  hh.map(size)
+
+    rres should be  (Record(a=0,b=3,c=4))
+    hres should be (HList(0,3,4))
+
+  }
+
+
 
 }

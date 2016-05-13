@@ -49,7 +49,7 @@ object FldWrites{
     Json.obj("type" -> w.runtimeClass.getSimpleName)
   })
 
-  implicit def SeqWr[S[_] <: Seq[_], T](implicit w: FldWrites[T], mr: Materializer.Aux[T, T]):FldWrites[S[T]] = new FldWrites(OWrites[S[T]] { _ =>
+  implicit def SeqWr[S[_] <: Seq[_], T](implicit w: FldWrites[T], mr: Materializer[T]):FldWrites[S[T]] = new FldWrites(OWrites[S[T]] { _ =>
     w.t.writes(mr.v)
   })
 

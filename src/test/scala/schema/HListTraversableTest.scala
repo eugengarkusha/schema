@@ -43,7 +43,7 @@ class HListTraversableTest extends FlatSpec with Matchers {
     }
 
     //record reads implicit implemented with HSeq
-    implicit def HR[L<:HList, O<:HList](implicit m: Mapper.Aux[mkReads.type,L,O], seq: HSeq.Aux[O, Reads, L], mat: Materializer.Aux[L,L]): Reads[L] = {
+    implicit def HR[L<:HList, O<:HList](implicit m: Mapper.Aux[mkReads.type,L,O], seq: HSeq.Aux[O, Reads, L], mat: Materializer[L]): Reads[L] = {
       seq(mat.v.map(mkReads))
     }
 

@@ -6,7 +6,6 @@ import schema.heplers.misc.tpe
 import shapeless.Nat._
 import schema.CSVParser._
 import org.scalatest.{FlatSpec, Matchers}
-import schema.heplers.Materializer
 
 import scala.util.Success
 

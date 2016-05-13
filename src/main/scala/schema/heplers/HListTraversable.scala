@@ -30,6 +30,7 @@ object HListTraversable {
   }
   //todo: implement as an implicit wrapper for HLists
   object  TraversableOps{
+  //test traverse more thoroughly(it may have a problems)
     def traverse[T<:HList,P<:Poly1, T1<:HList,A[_], H, H1](l:H::T,  p:P )(implicit ll:Mapper.Aux[p.type ,H::T, H1::T1], evv: H1=:=A[H], ev: HSeq[H1::T1, A]) = {
       ev(l.map(p))
     }

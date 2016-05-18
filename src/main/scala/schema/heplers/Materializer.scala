@@ -8,14 +8,18 @@ import scalaz.{Applicative, Id}
 
 
 //type class for HList materialization
-//TODO: Materializer need fix (materialization where Out!=T is broken)
 class Materializer[T](val v: T)
 
-trait lowMaterializer {
+trait l0 {
   implicit def plain[T]: Materializer[T] = new Materializer(null.asInstanceOf[T])
 }
+trait l1{
+  implicit def list[H[_],T](implicit a:Applicative[H], m:Materializer[T]): Materializer[H[T]] = {
+    new Materializer[H[T]](a.point(m.v))
+  }
+}
 
-object Materializer extends lowMaterializer{
+object Materializer extends l1 with l0{
 
   implicit def hconsDef1[HV,V,TT<:HList](implicit u:Unlabel[HV,V], d:Materializer[V], dt:Materializer[TT]):Materializer[HV::TT] = {
     //TODO: cannot find H[V]<:<HV
@@ -24,9 +28,7 @@ object Materializer extends lowMaterializer{
 
   implicit def HNilDef:Materializer[HNil] = new Materializer(HNil)
 
-  implicit def list[H[_],T](implicit a:Applicative[H], m:Materializer[T]): Materializer[H[T]] = {
-    new Materializer[H[T]](a.point(m.v))
-  }
+  implicit def opt[T]: Materializer[Option[T]] = new Materializer[Option[T]](None)
 
   def materialize[T](implicit m: Materializer[T]) = m.v
 

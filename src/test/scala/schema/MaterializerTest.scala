@@ -14,12 +14,13 @@ class MaterializerTest extends FlatSpec with Matchers{
 
   "Hlists with nested applicatives"should  "be materializable" in {
     type h = HList.`Option[Int],Boolean`.T
-    materialize[Option[h]] should be(Some(Some(null) :: null:: HNil))
+    materialize[h] should be(None :: null:: HNil)
+    materialize[Option[h]] should be(None)
   }
 
   "Records with nested applicatives" should  "be materializable" in {
     type r = Record.`'a->List[Option[Int]],'b-> Boolean`.T
-    materialize[List[r]] should be( List(List(Some(null)) :: null :: HNil))
+    materialize[List[r]] should be( List(List(None) :: null :: HNil))
   }
 
 

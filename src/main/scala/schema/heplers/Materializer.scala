@@ -22,8 +22,7 @@ trait l1{
 object Materializer extends l1 with l0{
 
   implicit def hconsDef1[HV,V,TT<:HList](implicit u:Unlabel[HV,V], d:Materializer[V], dt:Materializer[TT]):Materializer[HV::TT] = {
-    //TODO: cannot find H[V]<:<HV
-    new Materializer[HV::TT](u.relabel(d.v).asInstanceOf[HV]::dt.v)
+    new Materializer[HV::TT](u.repack(u.relabel(d.v))::dt.v)
   }
 
   implicit def HNilDef:Materializer[HNil] = new Materializer(HNil)

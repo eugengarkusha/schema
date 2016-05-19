@@ -50,8 +50,11 @@ class SplitTest extends FlatSpec with Matchers{
     val hh = HList("","one","four")
 
     object size extends ->[String, Int](_.size)
+    object size1 extends shapeless.PolyDefns.->[String, Int](_.size)
 
+    import shapeless._,record._
     val rres:recordEesultType =  rr.map(size)
+    val rres1: recordEesultType =  rr.mapValues(size1)
     val hres:hlistResultType =  hh.map(size)
 
     rres should be  (Record(a=0,b=3,c=4))

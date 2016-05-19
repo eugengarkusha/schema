@@ -6,12 +6,14 @@ import scalaz.{Split => _, _}
 import Scalaz._
 import Id.Id
 
-//this type class does relabeling any type with captured kind(Id or FieldType)
+
+//this type class serves a purpose of abstraction over label
+//it may be used for unifying processing of HLists and Records
 trait Unlabel[Labeld,V] {
-  type Lbl[_]
-  def repack(hv:Lbl[V]):Labeld
+  type Label[_]
+  def repack(hv:Label[V]):Labeld
   def apply(v:Labeld): V
-  def relabel[X](v:X):Lbl[X]
+  def relabel[X](v:X):Label[X]
 }
 
 trait loUnlabel{

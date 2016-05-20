@@ -18,19 +18,19 @@ trait Unlabel[Labeld,V] {
 
 trait loUnlabel{
   implicit def plain[V] = new Unlabel[Id[V],V]{
-    type Lbl[X]= Id[X]
+    type Label[X]= Id[X]
     def apply(v:V)= v
-    override def relabel[X](h:X):X = h
+    def relabel[X](h:X):X = h
     def repack(v:V)= v
   }
 }
 object Unlabel extends loUnlabel{
 
-type Aux[Labeld,L[_],V]= Unlabel[Labeld,V]{type Lbl[X]=L[X]}
+type Aux[Labeld,L[_],V]= Unlabel[Labeld,V]{type Label[X]=L[X]}
 
   implicit def fieldType[K,V] :Unlabel.Aux[FieldType[K, V],({type Lbl[X]=FieldType[K,X]})#Lbl, V]  = {
     new Unlabel[FieldType[K, V], V] {
-      type Lbl[X]= FieldType[K,X]
+      type Label[X]= FieldType[K,X]
       def apply(v:FieldType[K, V]):V = v
       def relabel[X](h: X): FieldType[K,X] = field[K](h)
       def repack(hv:FieldType[K, V]):FieldType[K, V] = hv

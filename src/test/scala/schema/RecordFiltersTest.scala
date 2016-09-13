@@ -74,7 +74,7 @@ class RecordFiltersTest  extends FlatSpec with Matchers{
 
 
    val filterReads =  implicitly[Reads[Filter[schema]]]
-   val flt = filterReads.reads(Json.parse(filtersConfig)).get
+   val flt: Filter[schema] = filterReads.reads(Json.parse(filtersConfig)).get
 
 
   "data that fully passes filter" should "be unchanged" in {

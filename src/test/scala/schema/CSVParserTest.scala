@@ -41,12 +41,14 @@ class CSVParserTest extends FlatSpec with Matchers {
                                                           .updateWith('b)(_ + "!!!")))
   }
 
+  //TODO: how to map many cells to one schema field
   "derived default field parsers" should "be mappable to arbitraty index in CSV string" in {
     val p3 = schema.setupParser(s =>
-      s.updateWith('a)(_ -> Nat(3)).
-        updateWith('b)(_ -> Nat(0)).
-        updateWith('c)(_.updateWith('d)(_ -> Nat(1)).updateWith('e)(_ -> Nat(4))).
-        updateWith('f)(_ -> Nat(2))
+      //TODO: lines may be longer than schema arities, remove the constraint!!
+      s.updateWith('a)(_ -> _3).
+        updateWith('b)(_ -> _0).
+        updateWith('c)(_.updateWith('d)(_ -> _1).updateWith('e)(_ -> _4)).
+        updateWith('f)(_ -> _2)
     ).build(tokenizer)
     p3.parse("blah,foo,bar,12,true") should be (Success(testRow))
   }
@@ -54,7 +56,7 @@ class CSVParserTest extends FlatSpec with Matchers {
   "derived default field parsers" should "be customizable and indexable simultaneously" in {
     val p4 = schema.setupParser(s =>
       s.updateWith('a)(_ => ((s: String) => {
-        val v = s.toInt; if (v > 11) 100 else 0
+        if (s.toInt > 11) 100 else 0
       }) -> _3).
         updateWith('b)(_.andThen(_ + "111") -> _0).
         updateWith('c)(_.updateWith('d)(_ -> _1).updateWith('e)(_ -> _4)).

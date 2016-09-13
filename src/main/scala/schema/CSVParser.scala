@@ -42,10 +42,10 @@ object CSVParser {
 
 
   private  object applyFldParser extends Poly1 {
-    implicit def caseT[K, R,N<:Nat](implicit ti:ToInt[N]) = at[(FT[K, (Function1[String, R],N)], Vector[String])]{
+    implicit def caseT[K, R, N<:Nat](implicit ti: ToInt[N]) = at[(FT[K, (Function1[String, R],N)], Vector[String])]{
       case(f, row)=> field[K](f._1(row(ti())))
     }
-    implicit def caseT1[K, V<:HList, O<:HList](implicit zc:ZipConst.Aux[Vector[String],V, O], m:Mapper[this.type ,O]) =
+    implicit def caseT1[K, V <: HList, O <: HList](implicit zc:ZipConst.Aux[Vector[String], V, O], m:Mapper[this.type ,O]) =
       at[(FT[K, V], Vector[String])]{
         case(l, row)=> field[K](l.asInstanceOf[V].zipConst(row)(zc).map(this))
       }
@@ -55,7 +55,7 @@ object CSVParser {
     implicit def caseT1[K, V](implicit parser: CSVFieldParser[V]) = at[FT[K, V]](_ => field[K](parser.func))
   }
   object getFldParserByType extends Poly1 with lowGetFldParserByType {
-    implicit def caseT[K, V<:HList](implicit parser: Mapper[this.type ,V]) = at[FT[K, V]](v => field[K](v.asInstanceOf[V].map(this)))
+    implicit def caseT[K, V<:HList](implicit parser: Mapper[this.type, V]) = at[FT[K, V]](v => field[K](v.asInstanceOf[V].map(this)))
   }
 
   def dateTimeParser(pattern: String) =  DateTimeFormat.forPattern(pattern).parseDateTime _
@@ -99,7 +99,7 @@ object CSVParser {
 
   //type class for witnessing the presence of correct record indexing
   //TODO: Implement macro based NAT(for faster operations)
-  @annotation.implicitNotFound("Provided recoed is either unindexed or indexed incorrectly. Indexed evidence not found for ${L}")
+  @annotation.implicitNotFound("Provided record is either unindexed or indexed incorrectly. Indexed evidence not found for ${L}")
   class Indexed[-L<:HList,N<:Nat]
   private val dfltInd  = new Indexed[HNil, _0]
 
@@ -118,10 +118,10 @@ object CSVParser {
   }
 
 
-  implicit class CSVParserBuilder[Schema <: HList, FldParsers <: HList,Len<:Nat](schema: Schema)
-    (implicit mapper: Mapper.Aux[getFldParserByType.type, Schema, FldParsers], i: RecordIndexer.Aux[Schema,_0,Len,_]) {
+  implicit class CSVParserBuilder[Schema <: HList, FldParsers <: HList, Len <: Nat](schema: Schema)
+    (implicit mapper: Mapper.Aux[getFldParserByType.type, Schema, FldParsers], i: RecordIndexer.Aux[Schema, _0, Len, _]) {
 
-      class BuilderAux[FP<:HList, ZCO<:HList](zc: ZipConst.Aux[Vector[String], FP, ZCO], fldParsers: FP) {
+      class BuilderAux[FP <: HList, ZCO <: HList](zc: ZipConst.Aux[Vector[String], FP, ZCO], fldParsers: FP) {
 
         def build(tokenize: Tokenizer)(implicit ev: Mapper.Aux[applyFldParser.type, ZCO, Schema]) ={
           new CSVParser[Schema] {
@@ -139,11 +139,12 @@ object CSVParser {
         }
       }
 
-      def setupParser[ZCO <: HList,I<:HList](f: FldParsers => I)(implicit zc: ZipConst.Aux[Vector[String], I, ZCO], i:Indexed[I,Len]) = {
-        new BuilderAux[I, ZCO](zc, f(schema.map(getFldParserByType)))
+      //TODO(problem): remove indexing(RecordIndexer, Indexed), the length of the input row is not correlatong with schema arity!!
+      def setupParser[ZCO <: HList, FP <: HList](f: FldParsers => FP)(implicit zc: ZipConst.Aux[Vector[String], FP, ZCO], i: Indexed[FP, Len]) = {
+        new BuilderAux[FP, ZCO](zc, f(schema.map(getFldParserByType)))
       }
 
-      def defaultParser[ZCO <: HList,I<:HList,E<:Nat](implicit hli:RecordIndexer.Aux[FldParsers,_0,E,I], zc: ZipConst.Aux[Vector[String], I, ZCO]) = {
+      def defaultParser[ZCO <: HList,I <: HList, E <: Nat](implicit hli:RecordIndexer.Aux[FldParsers, _0, E, I], zc: ZipConst.Aux[Vector[String], I, ZCO]) = {
         setupParser(hli(_))(zc, dfltInd.asInstanceOf[Indexed[I,Len]])
       }
   }

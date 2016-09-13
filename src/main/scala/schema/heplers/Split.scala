@@ -17,7 +17,7 @@ trait Unlabel[Labeld,V] {
 }
 
 trait loUnlabel{
-  implicit def plain[V] = new Unlabel[Id[V],V]{
+  implicit def plain[V]: Unlabel.Aux[Id[V], Id, V] = new Unlabel[Id[V], V]{
     type Label[X]= Id[X]
     def apply(v:V)= v
     def relabel[X](h:X):X = h

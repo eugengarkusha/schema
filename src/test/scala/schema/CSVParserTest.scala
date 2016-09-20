@@ -9,7 +9,18 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scala.util.Success
 
+/*
 
+This tool is all about derivation of default parsers from data structure.
+It is useful when most of the fields in data structure is parsed by default parsers(no specific parsing logic)
+In case if the custom parsing is needed for the majority of fields - this tool is not useful.
+
+basically case 1 and case 2 are the "useful" scenarios
+case 3 and case 4 are not (remove them?)
+ */
+
+//TODO: add possibility of mapping many cells to one schema field
+//TODO: lines may be longer than schema arities, remove the constraint!!
 class CSVParserTest extends FlatSpec with Matchers {
 
   //How does abstract schema is supposed to be encoded:
@@ -27,11 +38,14 @@ class CSVParserTest extends FlatSpec with Matchers {
 
   val tokenizer = new Tokenizer {def apply(s:String) = s.split(",").toVector}
 
+  //case 1
   "default CSV parser" should "be deriveable from the abstract schema " in {
     val p1 = schema.defaultParser.build(tokenizer)
     p1.parse("12,blah,foo,true,bar") should be (Success(testRow))
   }
 
+
+  //case 2
   "derived default field parsers" should "be customizable " in {
     val p2 = schema.setupParser(s =>
       s.updated('a, (s: String) => s.toInt + 2).
@@ -41,10 +55,9 @@ class CSVParserTest extends FlatSpec with Matchers {
                                                           .updateWith('b)(_ + "!!!")))
   }
 
-  //TODO: how to map many cells to one schema field
+  //case 3
   "derived default field parsers" should "be mappable to arbitraty index in CSV string" in {
     val p3 = schema.setupParser(s =>
-      //TODO: lines may be longer than schema arities, remove the constraint!!
       s.updateWith('a)(_ -> _3).
         updateWith('b)(_ -> _0).
         updateWith('c)(_.updateWith('d)(_ -> _1).updateWith('e)(_ -> _4)).
@@ -53,6 +66,7 @@ class CSVParserTest extends FlatSpec with Matchers {
     p3.parse("blah,foo,bar,12,true") should be (Success(testRow))
   }
 
+  //case 4
   "derived default field parsers" should "be customizable and indexable simultaneously" in {
     val p4 = schema.setupParser(s =>
       s.updateWith('a)(_ => ((s: String) => {

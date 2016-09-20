@@ -13,6 +13,16 @@ import scalaz.Isomorphism.Iso2
 import scalaz.NaturalTransformation._
 import Scalaz._
 
+/*
+TODO: CURRENT IMPLEMENTATION IS BROKEN!!!:
+it does not support  expressions like (fielda > fieldB || fieldC==1)&&(fieldX==true), instead all fields are inmlicitly combined by "&&" operation
+
+possible solution:
+
+--develop proper filtering AST and interpreters
+--design DSL for queries
+--provide interpreter for in-memory record list (and other interpreters as needed)
+*/
 class RecordFiltersTest  extends FlatSpec with Matchers{
 
   //Schema

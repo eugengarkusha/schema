@@ -14,6 +14,18 @@ import Scalaz._
 
 //TODO: polish this implementation(wrapWithFilters and ApplyFilters are so necessary?)
 //TODO: add reporting of which filter has failed
+
+/*
+TODO: CURRENT IMPLEMENTATION IS BROKEN!!!:
+it does not support  expressions like (fielda > fieldB || fieldC==1)&&(fieldX==true), instead all fields are inmlicitly combined by "&&" operation
+
+possible solution:
+
+--develop proper filtering AST and interpreters
+--design DSL for queries
+--provide interpreter for in-memory record list (and other interpreters as needed)
+*/
+
 object RecordFilters {
 
   //TODO:it sould be defined somewhere in scalaz

@@ -1,24 +1,36 @@
 package schema
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.FlatSpec
+import org.scalatest.Matchers
 import schema.heplers.misc.->
-import schema.heplers.{Split, Unlabel}
-import shapeless.{HList, Poly1}
+import schema.heplers.Split
+import schema.heplers.Unlabel
 import shapeless.record.Record
+import shapeless.HList
+import shapeless.Poly1
 
+import scalaz.Scalaz._
+import scalaz.Tag.TagOf
 import scalaz._
-import Scalaz._
 
 class SplitTest extends FlatSpec with Matchers{
 
 
-  "Split" should "correctly detect types"  in {
+  "Split" should "correctly detect types1"  in {
 
-    def plus[HK,H[_],V](v:HK)(v1:V)(implicit split: Split[HK,H,V], f: Functor[H], n: Numeric[V]) = f.map(split(v))(n.plus(_, v1))
-
+    def plus[HK, H[_], HK1, H1[_], V,T[_]](v: HK)(v1: HK1)
+    (implicit split: Split[HK, H, V], split1: Split[HK1, H1, V], f: Functor[H], f1: Foldable[H1], n: Semigroup[V]) = {
+      f1.foldl(split1(v1), split(v))(b => a => f.map(b)(n.append(a, _)))
+    }
     plus(1)(2)             should be(3)
     plus(List(1, 2, 3))(2) should be(List(3, 4, 5))
-    plus(Option(5D))(2D)   should be(Some(7D))
+    plus(2)(List(1, 2, 3)) should be(8)
+    plus(List(1, 2, 3))(List(4, 5, 6)) should be(List(16, 17, 18))
+    plus(Option(5L))(2L)   should be(Some(7L))
+    plus(Option(5L))(List(2L, 3L)) should be(Some(10L))
+    plus(List(2L, 3L))(Option(5L)) should be(List(7L, 8L))
+    plus(Option.empty[Long])(List(7L, 8L)) should be(None)
+    plus(List(7L, 8L))(Option.empty[Long])should be(List(7L, 8L))
   }
   "Unlabel" should  "allow mapping over HList and Records preserving structure" in {
     val hl = HList(1,true,"3")
@@ -52,7 +64,8 @@ class SplitTest extends FlatSpec with Matchers{
     object size extends ->[String, Int](_.size)
     object size1 extends shapeless.PolyDefns.->[String, Int](_.size)
 
-    import shapeless._,record._
+    import shapeless._
+    import record._
     val rres:recordEesultType =  rr.map(size)
     val rres1: recordEesultType =  rr.mapValues(size1)
     val hres:hlistResultType =  hh.map(size)

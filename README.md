@@ -1,7 +1,6 @@
-This repository contains a tools to:  
-1)encode the generic data schema  
-2)derive concrete shema instances from generic schema (ElasticSearch, Weka (support for others like Postgres or Spark is TBD))  
-3)Convert schema form/to Json  
-4)Derive CSV parser from schema  
-  
-This readme is to be written.
+Little type level experiments  
+1)generic data schema encoding  
+2)derivation of concrete shema instances from generic schema (implementations for ElasticSearch and  Weka )  
+3)Play json serializers/deserializers for shapeless Extensible records 
+4)Derivation of default CSV parser from data schema  
+
